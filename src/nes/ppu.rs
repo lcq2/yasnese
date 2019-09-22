@@ -270,10 +270,14 @@ impl Ppu {
         }
     }
 
+    fn load_chr(&self, address: u16) -> u8 {
+        self.mapper.borrow().load_chr_u8(address)
+    }
+
     fn load_u8(&self, address: u16) -> u8 {
         let mut addr = address & 0x3FFF;
         if addr < 0x2000 {
-            return self.mapper.borrow().load_chr_u8(addr);
+            return self.load_chr(addr);
         }
         else if addr < 0x3F00 {
             let mirrored = self.mirror_address(addr) & 0x7FF;
@@ -370,7 +374,7 @@ impl Ppu {
     fn fetch_bg_tile(&self, low: bool) -> usize {
         let fine_y = (self.v >> 12) & 0b111;
         let address = self.bg_pattern_table + self.nt as u16 * 16 + fine_y;
-        self.load_u8(if low { address } else { address + 8 }) as usize
+        self.load_chr(if low { address } else { address + 8 }) as usize
     }
 
     fn fetch_sp_tile(&self, idx: usize, low: bool) -> usize {
@@ -381,7 +385,7 @@ impl Ppu {
                 sprow = 7 - sprow;
             }
             let address = self.spr_pattern_table + tile as u16*16 + sprow as u16;
-            return self.load_u8(if low { address } else { address + 8 }) as usize;
+            return self.load_chr(if low { address } else { address + 8 }) as usize;
         }
         else {
             return 0;
