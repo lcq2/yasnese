@@ -1,0 +1,6 @@
+/target
+/roms
+**/*.rs.bk
+.idea/
+*.bin
+*.nes
