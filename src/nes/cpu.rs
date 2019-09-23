@@ -183,21 +183,21 @@ impl AddressingMode for IndirectYAddressing {
     }
 }
 
-pub struct Cpu<'a> {
+pub struct Cpu {
     a: u8,
     x: u8,
     y: u8,
     p: u8,
     s: u8,
     pc: u16,
-    pub bus: &'a mut bus::Bus,
+    pub bus: bus::Bus,
     cycles: u64,
     prev_nmi: bool,
     page_cross: bool
 }
 
-impl<'a> Cpu<'a> {
-    pub fn new(bus: &'a mut bus::Bus) -> Cpu<'a> {
+impl Cpu {
+    pub fn new(bus: bus::Bus) -> Cpu {
         Cpu {
             a: 0,
             x: 0,
@@ -223,7 +223,6 @@ impl<'a> Cpu<'a> {
 
         // fetch reset vector
         self.pc = self.bus.load_u16(CPU_RESET_VECTOR);
-        self.cycles = 7;
     }
 
     pub fn reset(&mut self) {
@@ -258,9 +257,7 @@ impl<'a> Cpu<'a> {
             for addr in srcaddr..srcaddr+256 {
                 let value = self.bus.load_u8(addr);
                 self.bus.store_u8(0x2004, value);
-                for _ in 0..6 {
-                    self.bus.ppu.tick();
-                }
+                self.bus.ppu.run(6);
             }
             self.cycles += (self.cycles % 2) + 1;
         }
@@ -697,9 +694,8 @@ impl<'a> Cpu<'a> {
             let cycles = self.step();
             let mut ppu_cycles = cycles*3;
             remaining -= cycles as i64;
-            while ppu_cycles > 0 {
-                self.bus.ppu.tick();
-                ppu_cycles -= 1;
+            if self.bus.ppu.run(ppu_cycles as i64) {
+                break;
             }
         }
     }

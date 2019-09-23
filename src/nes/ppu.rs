@@ -29,6 +29,7 @@ pub struct Ppu {
     bg_pattern_table: u16,
     sprite_h: u8,
     cycles: u32,
+    remaining: i64,
     scanline: u32,
     odd_frame: bool,
     framebuffer: [u8; PPU_FRAMEBUFFER_SZ],
@@ -172,6 +173,7 @@ impl Ppu {
             bg_pattern_table: 0,
             sprite_h: 8,
             cycles: 340,
+            remaining: 0,
             scanline: 240,
             odd_frame: false,
             framebuffer: [0; PPU_FRAMEBUFFER_SZ],
@@ -569,7 +571,8 @@ impl Ppu {
                             self.sp_at = self.sec_oam[oam_idx + 2];
                         },
                         3 => {
-                            self.sp_x[idx] = self.sec_oam[oam_idx + 3];
+                            let x = self.sec_oam[oam_idx + 3];
+                            self.sp_x[idx] = x;
                         },
                         5 => {
                             self.sp_low = PPU_PATTERN_REVERSE[self.fetch_sp_tile(oam_idx, true)];
@@ -581,7 +584,8 @@ impl Ppu {
                             let mut data: u32 = 0;
                             let fliph = self.sp_at & OAM_SPRITE_FLIP_H != 0;
                             let (mut low, mut high) = if fliph {
-                                (PPU_PATTERN_REVERSE[self.sp_low as usize], PPU_PATTERN_REVERSE[self.sp_high as usize])
+                                (PPU_PATTERN_REVERSE[self.sp_low as usize],
+                                 PPU_PATTERN_REVERSE[self.sp_high as usize])
                             }
                             else {
                                 (self.sp_low, self.sp_high)
@@ -620,35 +624,38 @@ impl Ppu {
         }
     }
 
-    pub fn tick(&mut self) {
-        match self.scanline {
-            261 => self.pre_render(),
-            0..=239 => self.visible(),
-            241 if self.cycles == 1 => self.vblank(),
-            _ => {}
-        }
+    pub fn run(&mut self, num_cycles: i64) -> bool {
+        let mut num_cycles = num_cycles + self.remaining;
+        self.remaining = 0;
+        while num_cycles > 0 {
+            num_cycles -= 1;
+            match self.scanline {
+                261 => self.pre_render(),
+                0..=239 => self.visible(),
+                241 if self.cycles == 1 => self.vblank(),
+                _ => {}
+            }
 
-        self.cycles += 1;
-        if self.cycles > PPU_CYCLES_PER_SCANLINE {
-            self.cycles = 0;
-            self.scanline += 1;
-            self.sec_oam_index = 0;
-            self.next_sprite_count = 0;
-            if self.scanline > PPU_POSTRENDER_SCANLINES {
-                self.odd_frame = !self.odd_frame;
-                self.scanline = 0;
-                self.frame_ready = true;
-                /*
-                if self.frame == 0 {
-                    self.frame = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros();
-                }
-                else {
+            self.cycles += 1;
+            if self.cycles > PPU_CYCLES_PER_SCANLINE {
+                self.cycles = 0;
+                self.scanline += 1;
+                self.sec_oam_index = 0;
+                self.next_sprite_count = 0;
+                if self.scanline > PPU_POSTRENDER_SCANLINES {
+                    self.odd_frame = !self.odd_frame;
+                    self.scanline = 0;
+                    self.frame_ready = true;
+                    self.remaining = num_cycles;
+                    /*
                     let curtime = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros();
                     println!("{}", curtime - self.frame);
-                    self.frame = curtime;
-                }*/
+                    self.frame = curtime;*/
+                    return true;
+                }
             }
         }
+        return false;
     }
 
     fn update_x(&mut self) {
@@ -698,6 +705,10 @@ impl Ppu {
         self.v = (self.v & 0x841F) | (self.t & 0x7BE0);
     }
 
+    pub fn frame_ready(&self) -> bool {
+        return self.frame_ready;
+    }
+
     pub fn take_frame(&mut self) -> bool {
         let frame_ready = self.frame_ready;
         if frame_ready {
@@ -705,8 +716,10 @@ impl Ppu {
         }
         frame_ready
     }
+
     pub fn copy_frame(&mut self, dst: &mut [u8]) {
         dst.copy_from_slice(&self.framebuffer);
         self.framebuffer = [0; PPU_FRAMEBUFFER_SZ];
+        self.frame_ready = false;
     }
 }
