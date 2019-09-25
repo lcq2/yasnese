@@ -9,34 +9,43 @@ use std::cell::RefCell;
 use std::error::Error;
 use sdl2::keyboard::Keycode;
 use sdl2::render::{WindowCanvas, Texture};
-use std::time::{SystemTime, Duration, UNIX_EPOCH};
+use sdl2::surface;
+use std::time::{SystemTime, Duration, UNIX_EPOCH, Instant};
+use sdl2::pixels::PixelFormatEnum;
 
 // NTSC frequency ~1.79 MHz
-const NES_CPU_FREQUENCY: u64 = 1_789_773;
+const NES_CPU_FREQUENCY: f64 = 1.789773;
 
 pub struct Nes {
     cpu: cpu::Cpu,
     frame: u64,
-    last_frame: u128,
-    start_time: u128
+    last_frame: Instant,
+    frame_time: Instant
 }
 
 impl Nes {
     pub fn new(romfile: &str) -> Result<Nes, Box<dyn Error>> {
         let mapper = mapper::from_file(romfile)?;
-        let bus = bus::Bus::new(mapper);
+        let ppu = ppu::Ppu::new(Rc::clone(&mapper));
+        let bus = bus::Bus::new(mapper, ppu);
         let cpu = cpu::Cpu::new(bus);
 
-        Ok(Nes { cpu, frame: 0, last_frame: 0, start_time: 0 })
+        Ok(Nes {
+            cpu,
+            frame: 0,
+            last_frame:
+            Instant::now(),
+            frame_time: Instant::now()
+        })
     }
 
     pub fn powerup(&mut self) {
         self.cpu.powerup();
-        self.start_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
     }
 
     pub fn reset(&mut self) {
         self.cpu.reset();
+        self.last_frame = Instant::now();
     }
 
     pub fn update_controller(&mut self, keycode: Keycode, pressed: bool) {
@@ -44,20 +53,19 @@ impl Nes {
     }
 
     pub fn run(&mut self, canvas: &mut WindowCanvas, texture: &mut Texture) {
-        self.cpu.run(341*262);
+        let elapsed = self.last_frame.elapsed().as_micros() as u64;
+        self.last_frame = Instant::now();
+
+        let cycles = (elapsed as f64*NES_CPU_FREQUENCY) as u64;
+        self.cpu.run(cycles);
         if self.cpu.bus.ppu.frame_ready() {
             texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
                 self.cpu.bus.ppu.copy_frame(buffer);
             });
-            canvas.copy(&texture, None, None).unwrap();
-            canvas.present();
             self.frame += 1;
-            let curtime = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
-            let elapsed = curtime - self.last_frame;
-            if elapsed < 1_000/30 {
-                std::thread::sleep(Duration::from_millis(1_000/30 - elapsed as u64));
-            }
-            self.last_frame = curtime;
+            canvas.clear();
+            canvas.copy(&texture, None, None).unwrap();
         }
+        canvas.present();
     }
 }

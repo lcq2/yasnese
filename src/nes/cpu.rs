@@ -688,13 +688,13 @@ impl Cpu {
         self.cycles += 7;
     }
 
-    pub fn run(&mut self, max_cycles: i64) {
-        let mut remaining = max_cycles;
+    pub fn run(&mut self, max_cycles: u64) {
+        let mut remaining = max_cycles as i64;
         while remaining > 0 {
             let cycles = self.step();
             let mut ppu_cycles = cycles*3;
             remaining -= cycles as i64;
-            if self.bus.ppu.run(ppu_cycles as i64) {
+            if self.bus.ppu.run(ppu_cycles) {
                 break;
             }
         }

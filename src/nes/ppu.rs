@@ -3,7 +3,7 @@ use super::rom;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use sdl2::log::Category::System;
+use sdl2::surface;
 
 const PPU_SCREEN_BPP: usize = 4;
 const PPU_SCREEN_WIDTH: usize = 256;
@@ -29,7 +29,7 @@ pub struct Ppu {
     bg_pattern_table: u16,
     sprite_h: u8,
     cycles: u32,
-    remaining: i64,
+    remaining: u64,
     scanline: u32,
     odd_frame: bool,
     framebuffer: [u8; PPU_FRAMEBUFFER_SZ],
@@ -200,6 +200,19 @@ impl Ppu {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.cycles = 340;
+        self.scanline = 240;
+        self.odd_frame = false;
+        self.v = 0;
+        self.t = 0;
+        self.x = 0;
+        self.w = false;
+        self.frame_ready = false;
+        self.sprite_count = 0;
+        self.next_sprite_count = 0;
+        self.sec_oam_index = 0;
+    }
     fn write_oam(&mut self, value: u8) {
         self.oam[self.oam_addr as usize] = value;
         self.oam_addr = self.oam_addr.wrapping_add(1);
@@ -624,7 +637,7 @@ impl Ppu {
         }
     }
 
-    pub fn run(&mut self, num_cycles: i64) -> bool {
+    pub fn run(&mut self, num_cycles: u64) -> bool {
         let mut num_cycles = num_cycles + self.remaining;
         self.remaining = 0;
         while num_cycles > 0 {
@@ -647,10 +660,6 @@ impl Ppu {
                     self.scanline = 0;
                     self.frame_ready = true;
                     self.remaining = num_cycles;
-                    /*
-                    let curtime = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_micros();
-                    println!("{}", curtime - self.frame);
-                    self.frame = curtime;*/
                     return true;
                 }
             }
@@ -709,17 +718,8 @@ impl Ppu {
         return self.frame_ready;
     }
 
-    pub fn take_frame(&mut self) -> bool {
-        let frame_ready = self.frame_ready;
-        if frame_ready {
-            self.frame_ready = false;
-        }
-        frame_ready
-    }
-
     pub fn copy_frame(&mut self, dst: &mut [u8]) {
         dst.copy_from_slice(&self.framebuffer);
-        self.framebuffer = [0; PPU_FRAMEBUFFER_SZ];
         self.frame_ready = false;
     }
 }

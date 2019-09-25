@@ -7,14 +7,11 @@ extern crate sdl2;
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::surface;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 fn main() {
-    /*
-    let mapper = nes::mapper::from_file("roms/super_mario_bros_w.nes").unwrap();
-    let mut bus = nes::bus::Bus::new(mapper);
-    let mut cpu = nes::cpu::Cpu::new(&mut bus);*/
-    let mut nes = nes::Nes::new("roms/tests/registers.nes").unwrap();
+    let mut nes = nes::Nes::new("roms/super_mario_bros_u.nes").unwrap();
     let mut elasped: Option<time::Instant> = None;
     let test_status: u8 = 0xFF;
     nes.powerup();
@@ -26,8 +23,8 @@ fn main() {
         .position_centered()
         .build()
         .unwrap();
+    let mut canvas = window.into_canvas().accelerated().build().unwrap();
 
-    let mut canvas = window.into_canvas().accelerated().present_vsync().build().unwrap();
     canvas.set_logical_size(256, 240);
 
     let texture_creator = canvas.texture_creator();

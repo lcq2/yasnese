@@ -13,11 +13,11 @@ pub struct Bus {
 }
 
 impl Bus {
-    pub fn new(mapper: Rc<RefCell<dyn mapper::Mapper>>) -> Bus {
+    pub fn new(mapper: Rc<RefCell<dyn mapper::Mapper>>, ppu: ppu::Ppu) -> Bus {
         Bus {
             ram: [0; 0x800],
             mapper: Rc::clone(&mapper),
-            ppu: ppu::Ppu::new(Rc::clone(&mapper)),
+            ppu,
             controller: controller::Controller::new()
         }
     }
@@ -70,4 +70,7 @@ impl Bus {
         self.ppu.pending_nmi()
     }
 
+    pub fn reset(&mut self) {
+        self.ppu.reset();
+    }
 }
