@@ -11,7 +11,7 @@ use sdl2::surface;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 fn main() {
-    let mut nes = nes::Nes::new("roms/super_mario_bros_u.nes").unwrap();
+    let mut nes = nes::Nes::new("roms/super_mario_bros.nes").unwrap();
     let mut elasped: Option<time::Instant> = None;
     let test_status: u8 = 0xFF;
     nes.powerup();
@@ -66,6 +66,9 @@ fn main() {
             continue 'running;
         }
 
-        nes.run(&mut canvas, &mut texture);
+        nes.run(&mut texture);
+        canvas.clear();
+        canvas.copy(&texture, None, None).unwrap();
+        canvas.present();
     }
 }

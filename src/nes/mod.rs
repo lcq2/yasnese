@@ -52,10 +52,9 @@ impl Nes {
         self.cpu.bus.controller.update(keycode, pressed);
     }
 
-    pub fn run(&mut self, canvas: &mut WindowCanvas, texture: &mut Texture) {
+    pub fn run(&mut self, texture: &mut Texture) {
         let elapsed = self.last_frame.elapsed().as_micros() as u64;
         self.last_frame = Instant::now();
-
         let cycles = (elapsed as f64*NES_CPU_FREQUENCY) as u64;
         self.cpu.run(cycles);
         if self.cpu.bus.ppu.frame_ready() {
@@ -63,9 +62,6 @@ impl Nes {
                 self.cpu.bus.ppu.copy_frame(buffer);
             });
             self.frame += 1;
-            canvas.clear();
-            canvas.copy(&texture, None, None).unwrap();
         }
-        canvas.present();
     }
 }
