@@ -477,9 +477,9 @@ impl Ppu {
         }
     }
 
-    fn sprite_pixel(&mut self) -> u8 {
+    fn sprite_pixel(&mut self) -> (u8, usize) {
         if !self.show_sprites() {
-            return 0;
+            return (0, 0);
         }
 
         let x = self.cycles - 1;
@@ -492,11 +492,10 @@ impl Ppu {
                 if color % 4 == 0 {
                     continue;
                 }
-                self.sp0_hit = i == 0;
-                return color as u8;
+                return (color as u8, i);
             }
         }
-        return 0;
+        return (0, 0);
     }
 
     fn put_pixel(&mut self, x: usize, y: usize, palette_index: usize) {
@@ -527,8 +526,18 @@ impl Ppu {
                 let x = self.cycles - 1;
                 let y = self.scanline;
 
-                let bg_pixel = if x < 8 && self.hide_back8() { 0 } else { self.background_pixel() };
-                let sp_pixel = if x < 8 && self.hide_sprite8() { 0 } else { self.sprite_pixel() };
+                let bg_pixel = if x < 8 && self.hide_back8() {
+                    0
+                }
+                else {
+                    self.background_pixel()
+                };
+                let (sp_pixel, sp_index) = if x < 8 && self.hide_sprite8() {
+                    (0,0)
+                }
+                else {
+                    self.sprite_pixel()
+                };
 
                 let sp_transp = sp_pixel & 0b11 == 0;
                 let bg_transp = bg_pixel & 0b11 == 0;
@@ -537,21 +546,24 @@ impl Ppu {
                     (true, false) => { sp_pixel | 0x10 },
                     (false, true) => { bg_pixel },
                     (false, false) => {
-                        if self.sp0_hit {
+                        if sp_index == 0 {
                             self.ppu_status |= PPU_STATUS_SPRITE0_HIT;
                         }
-                        sp_pixel
+
+                        if self.sp_prio[sp_index] == 0 {
+                            sp_pixel | 0x10
+                        }
+                        else {
+                            bg_pixel
+                        }
                     }
                 };
 
                 let palette_index = self.load_u8(0x3f00 + color as u16) & 0x3F;
                 self.put_pixel(x as usize, y as usize, palette_index as usize);
                 self.fetch_cycle();
-                if self.cycles <= 64 {
-                    if self.cycles % 2 == 0 {
-                        self.sec_oam[self.sec_oam_index] = 0xFF;
-                        self.sec_oam_index = (self.sec_oam_index + 1) & 0x1F;
-                    }
+                if self.cycles <= 32 {
+                    self.sec_oam[(self.cycles-1) as usize] = 0xFF;
                 }
                 else if self.cycles >= 65 && self.cycles <= 256 {
                     if self.cycles % 3 == 2 {

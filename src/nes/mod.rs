@@ -55,6 +55,7 @@ impl Nes {
     pub fn run(&mut self, texture: &mut Texture) {
         let elapsed = self.last_frame.elapsed().as_micros() as u64;
         self.last_frame = Instant::now();
+        println!("{}", elapsed);
         let cycles = (elapsed as f64*NES_CPU_FREQUENCY) as u64;
         self.cpu.run(cycles);
         if self.cpu.bus.ppu.frame_ready() {
