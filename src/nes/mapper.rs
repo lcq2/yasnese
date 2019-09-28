@@ -45,7 +45,7 @@ impl Mapper for Mapper0 {
             unsafe { *self.ram.get_unchecked_mut((address & 0x1FFF) as usize) = value };
         }
         else {
-            panic!("Mapper0::store_prg_u8");
+            panic!("Mapper0::store_prg_u8: ({:x} = {})", address, value);
         }
     }
 

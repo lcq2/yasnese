@@ -21,7 +21,6 @@ pub struct Ppu {
     ram: [u8; 0x800],
     palette: [u8; 0x20],
     sec_oam: [u8; 32],
-    sec_oam_index: usize,
     sprite_count: usize,
     next_sprite_count: usize,
     vram_addr_incr: u8,
@@ -29,7 +28,6 @@ pub struct Ppu {
     bg_pattern_table: u16,
     sprite_h: u8,
     cycles: u32,
-    remaining: u64,
     scanline: u32,
     odd_frame: bool,
     framebuffer: [u8; PPU_FRAMEBUFFER_SZ],
@@ -165,7 +163,6 @@ impl Ppu {
             ram: [0; 0x800],
             palette: [0; 0x20],
             sec_oam: [0; 32],
-            sec_oam_index: 0,
             sprite_count: 0,
             next_sprite_count: 0,
             vram_addr_incr: 0,
@@ -173,7 +170,6 @@ impl Ppu {
             bg_pattern_table: 0,
             sprite_h: 8,
             cycles: 340,
-            remaining: 0,
             scanline: 240,
             odd_frame: false,
             framebuffer: [0; PPU_FRAMEBUFFER_SZ],
@@ -211,7 +207,6 @@ impl Ppu {
         self.frame_ready = false;
         self.sprite_count = 0;
         self.next_sprite_count = 0;
-        self.sec_oam_index = 0;
     }
     fn write_oam(&mut self, value: u8) {
         self.oam[self.oam_addr as usize] = value;
@@ -289,6 +284,10 @@ impl Ppu {
         self.mapper.borrow().load_chr_u8(address)
     }
 
+    fn load_palette(&self, address: u8) -> u8 {
+        self.palette[address as usize]
+    }
+
     fn load_u8(&self, address: u16) -> u8 {
         let mut addr = address & 0x3FFF;
         if addr < 0x2000 {
@@ -299,11 +298,7 @@ impl Ppu {
             return self.ram[mirrored as usize];
         }
         else if addr < 0x4000 {
-            addr &= 0x1F;
-            if addr >= 16 && address % 4 == 0 {
-                addr -= 16;
-            }
-            return self.palette[addr as usize];
+            return self.load_palette((addr & 0x1F) as u8);
         }
         else {
             panic!("Invalid PPU access");
@@ -321,10 +316,15 @@ impl Ppu {
         }
         else if addr < 0x4000 {
             addr &= 0x1F;
-            if addr >= 16 && address % 4 == 0 {
-                addr -= 16;
-            }
             self.palette[addr as usize] = value;
+            if addr % 4 == 0 {
+                if addr >= 0x10 {
+                    self.palette[addr as usize - 0x10] = value;
+                }
+                else {
+                    self.palette[addr as usize + 0x10] = value;
+                }
+            }
         }
         else {
             panic!("Invalid PPU access: address = {:x}", addr);
@@ -481,15 +481,13 @@ impl Ppu {
         if !self.show_sprites() {
             return (0, 0);
         }
-
         let x = self.cycles - 1;
-        let y = self.scanline;
 
         for i in 0..self.sprite_count {
             let xoff = x as i32 - self.sp_x[i] as i32;
             if xoff >= 0 && xoff < 8 {
                 let color = (self.sp_data[i] >> (4*xoff as u32)) & 0x0F;
-                if color % 4 == 0 {
+                if (color & 0b11) == 0 {
                     continue;
                 }
                 return (color as u8, i);
@@ -526,13 +524,13 @@ impl Ppu {
                 let x = self.cycles - 1;
                 let y = self.scanline;
 
-                let bg_pixel = if x < 8 && self.hide_back8() {
+                let bg_pixel = if (x < 8 && self.hide_back8()) || !self.show_background() {
                     0
                 }
                 else {
                     self.background_pixel()
                 };
-                let (sp_pixel, sp_index) = if x < 8 && self.hide_sprite8() {
+                let (sp_pixel, sp_index) = if x < 8 && self.hide_sprite8(){
                     (0,0)
                 }
                 else {
@@ -546,7 +544,7 @@ impl Ppu {
                     (true, false) => { sp_pixel | 0x10 },
                     (false, true) => { bg_pixel },
                     (false, false) => {
-                        if sp_index == 0 {
+                        if sp_index == 0 && self.show_background() && x < 255 {
                             self.ppu_status |= PPU_STATUS_SPRITE0_HIT;
                         }
 
@@ -557,9 +555,10 @@ impl Ppu {
                             bg_pixel
                         }
                     }
-                };
+                } & 0x1F;
 
-                let palette_index = self.load_u8(0x3f00 + color as u16) & 0x3F;
+//                let palette_index = self.load_u8(0x3f00 + color as u16) & 0x3F;
+                let palette_index = self.load_palette(color) & 0x3F;
                 self.put_pixel(x as usize, y as usize, palette_index as usize);
                 self.fetch_cycle();
                 if self.cycles <= 32 {
@@ -567,13 +566,13 @@ impl Ppu {
                 }
                 else if self.cycles >= 65 && self.cycles <= 256 {
                     if self.cycles % 3 == 2 {
-                        let idx = ((self.cycles - 65)/3) as usize + self.oam_addr as usize;
+                        let idx = ((self.cycles - 65)/3) as usize/* + self.oam_addr as usize*/;
                         let spy = self.oam[idx*4] as u32;
                         if self.scanline >= spy && self.scanline < (spy+self.sprite_h as u32) {
                             if self.next_sprite_count < 8 {
-                                self.sec_oam[self.sec_oam_index..self.sec_oam_index+4]
+                                let spidx = self.next_sprite_count*4 as usize;
+                                self.sec_oam[spidx..spidx+4]
                                     .copy_from_slice(&self.oam[idx*4..idx*4+4]);
-                                self.sec_oam_index += 4;
                                 self.next_sprite_count += 1;
                             }
                             else {
@@ -649,9 +648,8 @@ impl Ppu {
         }
     }
 
-    pub fn run(&mut self, num_cycles: u64) -> bool {
-        let mut num_cycles = num_cycles + self.remaining;
-        self.remaining = 0;
+    pub fn run(&mut self, num_cycles: u64) {
+        let mut num_cycles = num_cycles;
         while num_cycles > 0 {
             num_cycles -= 1;
             match self.scanline {
@@ -665,18 +663,14 @@ impl Ppu {
             if self.cycles > PPU_CYCLES_PER_SCANLINE {
                 self.cycles = 0;
                 self.scanline += 1;
-                self.sec_oam_index = 0;
                 self.next_sprite_count = 0;
                 if self.scanline > PPU_POSTRENDER_SCANLINES {
                     self.odd_frame = !self.odd_frame;
                     self.scanline = 0;
                     self.frame_ready = true;
-                    self.remaining = num_cycles;
-                    return true;
                 }
             }
         }
-        return false;
     }
 
     fn update_x(&mut self) {
