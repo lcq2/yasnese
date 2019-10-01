@@ -1,5 +1,6 @@
 use super::mapper;
 use super::ppu;
+use super::apu;
 use super::controller;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -9,15 +10,17 @@ pub struct Bus {
     pub ram: [u8; 0x800],
     pub mapper: Rc<RefCell<dyn mapper::Mapper>>,
     pub ppu: ppu::Ppu,
+    pub apu: apu::Apu,
     pub controller: controller::Controller
 }
 
 impl Bus {
-    pub fn new(mapper: Rc<RefCell<dyn mapper::Mapper>>, ppu: ppu::Ppu) -> Bus {
+    pub fn new(mapper: Rc<RefCell<dyn mapper::Mapper>>, ppu: ppu::Ppu, apu: apu::Apu) -> Bus {
         Bus {
             ram: [0; 0x800],
             mapper: Rc::clone(&mapper),
             ppu,
+            apu,
             controller: controller::Controller::new()
         }
     }
@@ -51,8 +54,26 @@ impl Bus {
         else if address < 0x4000 {
             self.ppu.write_reg(address % 0x08, value);
         }
+        else if address == 0x4000 {
+            self.apu.write4000(value);
+        }
+        else if address == 0x4001 {
+            self.apu.write4001(value);
+        }
+        else if address == 0x4002 {
+            self.apu.write4002(value);
+        }
+        else if address == 0x4003 {
+            self.apu.write4003(value);
+        }
+        else if address == 0x4015 {
+            self.apu.write4015(value);
+        }
         else if address == 0x4016 {
             self.controller.store_u8(value);
+        }
+        else if address == 0x4017 {
+            self.apu.write4017(value);
         }
         else if address < 0x4020 {
             // APU

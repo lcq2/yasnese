@@ -1,5 +1,4 @@
 use super::bus;
-use rand::prelude::*;
 use std::time::{UNIX_EPOCH, SystemTime};
 
 static CPU_INS_CYCLE: [u8; 256] = [
@@ -697,6 +696,7 @@ impl Cpu {
             let mut ppu_cycles = cycles*3;
             remaining -= cycles as i64;
             self.bus.ppu.run(ppu_cycles);
+            self.bus.apu.run(cycles);
         }
     }
 

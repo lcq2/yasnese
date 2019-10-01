@@ -3,7 +3,6 @@ use super::rom;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use sdl2::surface;
 
 const PPU_SCREEN_BPP: usize = 4;
 const PPU_SCREEN_WIDTH: usize = 256;
@@ -557,7 +556,6 @@ impl Ppu {
                     }
                 } & 0x1F;
 
-//                let palette_index = self.load_u8(0x3f00 + color as u16) & 0x3F;
                 let palette_index = self.load_palette(color) & 0x3F;
                 self.put_pixel(x as usize, y as usize, palette_index as usize);
                 self.fetch_cycle();
