@@ -93,5 +93,11 @@ impl Bus {
 
     pub fn reset(&mut self) {
         self.ppu.reset();
+        self.apu.reset();
+    }
+
+    pub fn run(&mut self, cycles: u64) {
+        self.ppu.run(cycles*3);
+        self.apu.run(cycles);
     }
 }

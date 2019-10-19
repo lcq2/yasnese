@@ -194,7 +194,9 @@ pub struct Cpu {
     pub bus: bus::Bus,
     cycles: u64,
     prev_nmi: bool,
-    page_cross: bool
+    page_cross: bool,
+    oam: bool,
+    oam_addr: u16
 }
 
 impl Cpu {
@@ -209,7 +211,9 @@ impl Cpu {
             bus,
             cycles: 0,
             prev_nmi: false,
-            page_cross: false
+            page_cross: false,
+            oam: false,
+            oam_addr: 0
         }
     }
 
@@ -254,12 +258,15 @@ impl Cpu {
             // perform OAM dma
             // hackish, but the PPU should continue to run DURING dma
             // side effect: we miss 512 cycles on cycle count, must fix this
-            let srcaddr = (value as u16) << 8;
+/*            let srcaddr = (value as u16) << 8;
             for addr in srcaddr..srcaddr+256 {
                 let value = self.bus.load_u8(addr);
                 self.bus.store_u8(0x2004, value);
                 self.bus.ppu.run(6);
             }
+            self.cycles += (self.cycles % 2) + 1;*/
+            self.oam_addr = (value as u16) << 8;
+            self.oam = true;
             self.cycles += (self.cycles % 2) + 1;
         }
         else {
@@ -286,6 +293,17 @@ impl Cpu {
                 self.handle_nmi();
             }
             self.prev_nmi = nmi_latch;
+        }
+
+        if self.oam {
+            let value = self.bus.load_u8(self.oam_addr);
+            self.bus.store_u8(0x2004, value);
+            self.oam_addr = self.oam_addr.wrapping_add(1);
+            if (self.oam_addr & 0x00FF) == 0 {
+                self.oam = false;
+            }
+            self.cycles += 2;
+            return 2;
         }
 
         let opcode = self.fetch_u8();
@@ -693,10 +711,8 @@ impl Cpu {
         let mut remaining = max_cycles as i64;
         while remaining > 0 {
             let cycles = self.step();
-            let mut ppu_cycles = cycles*3;
             remaining -= cycles as i64;
-            self.bus.ppu.run(ppu_cycles);
-            self.bus.apu.run(cycles);
+            self.bus.run(cycles);
         }
     }
 
@@ -721,12 +737,7 @@ impl Cpu {
     }
 
     fn set_flag(&mut self, flag: u8, set: bool) {
-        if set {
-            self.p |= flag;
-        }
-        else {
-            self.p &= !flag;
-        }
+        self.p = if set { self.p | flag } else { self.p & !flag };
     }
 
     fn get_flag(&self, flag: u8) -> bool {

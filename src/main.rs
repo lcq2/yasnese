@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let audio_spec = AudioSpecDesired {
         freq: Some(44100),
         channels: Some(1),
-        samples: Some(1024)
+        samples: Some(128)
     };
 
     let audio_queue = Rc::new(RefCell::new(audio.open_queue::<u8, _>(None, &audio_spec)?));
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .position_centered()
         .build()
         .unwrap();
-    let mut canvas = window.into_canvas().accelerated().build()?;
+    let mut canvas = window.into_canvas().present_vsync().accelerated().build()?;
 
     canvas.set_logical_size(256, 240);
 
