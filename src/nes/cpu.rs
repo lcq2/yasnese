@@ -256,15 +256,6 @@ impl Cpu {
     fn store_u8(&mut self, address: u16, value: u8) {
         if address == 0x4014 {
             // perform OAM dma
-            // hackish, but the PPU should continue to run DURING dma
-            // side effect: we miss 512 cycles on cycle count, must fix this
-/*            let srcaddr = (value as u16) << 8;
-            for addr in srcaddr..srcaddr+256 {
-                let value = self.bus.load_u8(addr);
-                self.bus.store_u8(0x2004, value);
-                self.bus.ppu.run(6);
-            }
-            self.cycles += (self.cycles % 2) + 1;*/
             self.oam_addr = (value as u16) << 8;
             self.oam = true;
             self.cycles += (self.cycles % 2) + 1;
