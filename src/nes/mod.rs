@@ -21,7 +21,6 @@ const NES_CPU_FREQUENCY: f64 = 1.789773;
 pub struct Nes {
     cpu: cpu::Cpu,
     frame: u64,
-    fps: u64,
     last_frame: Instant
 }
 
@@ -36,7 +35,6 @@ impl Nes {
         Ok(Nes {
             cpu,
             frame: 0,
-            fps: 0,
             last_frame: Instant::now()
         })
     }
@@ -64,7 +62,7 @@ impl Nes {
         let cycles = (elapsed as f64*NES_CPU_FREQUENCY).round() as u64;
         self.cpu.run(cycles);
         if self.cpu.bus.ppu.frame_ready() {
-            texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+            texture.with_lock(None, |buffer: &mut [u8], _pitch: usize| {
                 self.cpu.bus.ppu.copy_frame(buffer);
             });
             self.frame += 1;

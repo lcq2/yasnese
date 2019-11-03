@@ -2,7 +2,6 @@ use sdl2::audio::AudioQueue;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::option::Option;
-use std::borrow::BorrowMut;
 
 const APU_STATUS: u16 = 0x4015;
 const APU_FRAME_COUNTER: u16 = 0x4017;
@@ -401,7 +400,7 @@ impl Apu {
             self.pulse2.step();
         }
         self.sequencer();
-        if self.apu_cycle % 40 == 0 {
+        if self.cycle % 40 == 0 {
             let mut sample: u8 = 0;
             if self.pulse1.enabled {
                 sample = self.pulse1.out();
@@ -432,14 +431,5 @@ impl Apu {
             self.step();
             cycles -= 1;
         }
-    }
-
-    pub fn audio_ready(&self) -> bool {
-        self.audio_ready
-    }
-
-    pub fn take_audio(&mut self) -> &[u8] {
-        self.audio_ready = false;
-        &self.out_buf
     }
 }

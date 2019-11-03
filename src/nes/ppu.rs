@@ -1,8 +1,6 @@
 use super::mapper;
-use super::rom;
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const PPU_SCREEN_BPP: usize = 4;
 const PPU_SCREEN_WIDTH: usize = 256;
@@ -15,7 +13,6 @@ pub struct Ppu {
     ppu_mask: u8,
     ppu_status: u8,
     oam_addr: u8,
-    oam_data: u8,
     oam: [u8; 256],
     ram: [u8; 0x800],
     palette: [u8; 0x20],
@@ -152,12 +149,11 @@ impl Ppu {
     pub fn new(mapper: Rc<RefCell<dyn mapper::Mapper>>) -> Ppu {
         let mirroring = mapper.borrow().mirroring();
         Ppu {
-            mapper: mapper,
+            mapper,
             ppu_ctrl: 0,
             ppu_mask: 0,
             ppu_status: 0,
             oam_addr: 0,
-            oam_data: 0,
             oam: [0; 256],
             ram: [0; 0x800],
             palette: [0; 0x20],

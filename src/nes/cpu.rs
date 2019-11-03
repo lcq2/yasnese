@@ -1,5 +1,4 @@
 use super::bus;
-use std::time::{UNIX_EPOCH, SystemTime};
 
 static CPU_INS_CYCLE: [u8; 256] = [
     /*       0 1 2 3 4 5 6 7 8 9 a b c d e f    */
@@ -278,12 +277,15 @@ impl Cpu {
     }
 
     pub fn step(&mut self) -> u64 {
+        let cycles = self.cycles;
+
         let nmi_latch = self.bus.pending_nmi();
         if nmi_latch != self.prev_nmi {
             if nmi_latch {
                 self.handle_nmi();
             }
             self.prev_nmi = nmi_latch;
+            return self.cycles - cycles;
         }
 
         if self.oam {
@@ -294,13 +296,12 @@ impl Cpu {
                 self.oam = false;
             }
             self.cycles += 2;
-            return 2;
+            return self.cycles - cycles;
         }
 
         let opcode = self.fetch_u8();
         self.page_cross = false;
 
-        let cycles = self.cycles;
         match opcode {
             // ADC
             0x69 => self.adc::<ImmediateAddressing>(),

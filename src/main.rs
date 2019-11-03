@@ -1,7 +1,5 @@
 mod nes;
 use std::io::prelude::*;
-use std::fs;
-use std::time;
 use std::env;
 use std::error::Error;
 use std::rc::Rc;
@@ -10,8 +8,8 @@ use std::cell::RefCell;
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::AudioSubsystem;
 use sdl2::audio::AudioSpecDesired;
+use std::time::SystemTime;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
@@ -40,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .position_centered()
         .build()
         .unwrap();
-    let mut canvas = window.into_canvas().present_vsync().accelerated().build()?;
+    let mut canvas = window.into_canvas().accelerated().build()?;
 
     canvas.set_logical_size(256, 240);
 
@@ -60,6 +58,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     nes.set_audio_queue(Rc::clone(&audio_queue));
     audio_queue.borrow().resume();
 
+    let mut frame_count = 0;
+    let mut t = SystemTime::now();
     'running: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -91,6 +91,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         canvas.clear();
         canvas.copy(&texture, None, None)?;
         canvas.present();
+        frame_count += 1;
     }
     Ok(())
 }

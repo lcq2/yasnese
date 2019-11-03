@@ -4,7 +4,6 @@ use super::apu;
 use super::controller;
 use std::rc::Rc;
 use std::cell::RefCell;
-use byteorder::{ByteOrder, LittleEndian};
 
 pub struct Bus {
     pub ram: [u8; 0x800],
@@ -98,6 +97,6 @@ impl Bus {
 
     pub fn run(&mut self, cycles: u64) {
         self.ppu.run(cycles*3);
-        self.apu.run(cycles);
+//        self.apu.run(cycles);
     }
 }
