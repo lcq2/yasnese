@@ -345,6 +345,9 @@ impl Ppu {
             self.v += self.vram_addr_incr as u16;
             return value;
         }
+        else if address == OAMDATA {
+            return self.oam[self.oam_addr as usize];
+        }
         0
     }
 

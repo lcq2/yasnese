@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     nes.powerup();
     nes.reset();
     nes.set_audio_queue(Rc::clone(&audio_queue));
-    audio_queue.borrow().resume();
+//    audio_queue.borrow().resume();
 
     let mut frame_count = 0;
     let mut t = SystemTime::now();
